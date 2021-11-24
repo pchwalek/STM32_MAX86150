@@ -134,6 +134,8 @@ bool MAX86150::begin(uint8_t i2c_address, I2C_HandleTypeDef *i2c_handle) {
 	if (readPartID() != MAX_30105_EXPECTEDPARTID) {
 		// Error -- Part ID read from MAX86150 does not match expected part ID.
 		// This may mean there is a physical connectivity problem (broken wire, unpowered, etc).
+
+
 		return false;
 	}
 	return true;
