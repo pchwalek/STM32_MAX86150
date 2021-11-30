@@ -479,12 +479,15 @@ int32_t MAX86150::getFIFOECG(void) {
 }
 
 //Advance the tail
-void MAX86150::nextSample(void) {
+uint16_t MAX86150::nextSample(void) {
 	if (available()) //Only advance the tail if new data is available
 	{
 		sense.tail++;
 		sense.tail %= STORAGE_SIZE; //Wrap condition
+		return 1;
 	}
+
+	return 0;
 }
 
 //Polls the sensor for new data

@@ -102,7 +102,7 @@ public:
 	//FIFO Reading
 	uint16_t check(void); //Checks for new data and fills FIFO
 	uint8_t available(void); //Tells caller how many new samples are available (head - tail)
-	void nextSample(void); //Advances the tail of the sense array
+	uint16_t nextSample(void); //Advances the tail of the sense array
 	uint32_t getFIFORed(void); //Returns the FIFO sample pointed to by tail
 	uint32_t getFIFOIR(void); //Returns the FIFO sample pointed to by tail
 	int32_t getFIFOECG(void); //Returns the FIFO sample pointed to by tail
@@ -147,7 +147,7 @@ private:
 
 	void bitMask(uint8_t reg, uint8_t mask, uint8_t thing);
 
-#define STORAGE_SIZE 4 //Each long is 4 bytes so limit this to fit on your micro
+#define STORAGE_SIZE 40 //Each long is 4 bytes so limit this to fit on your micro
 	typedef struct Record {
 		uint32_t red[STORAGE_SIZE];
 		uint32_t IR[STORAGE_SIZE];
