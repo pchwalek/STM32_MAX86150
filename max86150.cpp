@@ -331,6 +331,11 @@ uint8_t MAX86150::getReadPointer(void) {
 	return (readRegister8(i2c_addr, MAX86150_FIFOREADPTR));
 }
 
+//Read the FIFO Read Pointer
+uint8_t MAX86150::getOVFCounter(void) {
+	return (readRegister8(i2c_addr, MAX86150_FIFOOVERFLOW));
+}
+
 // Set the PROX_INT_THRESHold
 void MAX86150::setPROXINTTHRESH(uint8_t val) {
 	writeRegister8(i2c_addr, MAX86150_PROXINTTHRESH, val);
@@ -352,7 +357,7 @@ uint8_t MAX86150::readPartID() {
 //Use the default setup if you are just getting started with the MAX86150 sensor
 void MAX86150::setup(byte powerLevel, byte sampleAverage, byte ledMode,
 		int sampleRate, int pulseWidth, int adcRange) {
-	activeDevices = 2;
+	activeDevices = 4;
 	writeRegister8(i2c_addr, MAX86150_SYSCONTROL, 0x01);
 	delay(100);
 	writeRegister8(i2c_addr, MAX86150_FIFOCONFIG, 0x7F);
@@ -415,6 +420,10 @@ void MAX86150::setup(byte powerLevel, byte sampleAverage, byte ledMode,
 	//enableSlot(2, SLOT_IR_PILOT);
 	//enableSlot(3, SLOT_GREEN_PILOT);
 	//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+	// reset rolling buffer indexes
+	sense.head = 0;
+	sense.tail = 0;
 
 	clearFIFO(); //Reset the FIFO before we begin checking the sensor
 }
@@ -500,13 +509,18 @@ uint16_t MAX86150::check(void) {
 
 	byte readPointer = getReadPointer();
 	byte writePointer = getWritePointer();
+	byte ovfCounter = getOVFCounter();
 
 	int numberOfSamples = 0;
 
 	//Do we have new data?
-	if (readPointer != writePointer) {
+	if ( (readPointer != writePointer) || (ovfCounter != 0)) {
 		//Calculate the number of readings we need to get from sensor
-		numberOfSamples = writePointer - readPointer;
+		if(ovfCounter==0){
+			numberOfSamples = writePointer - readPointer;
+		}else{
+			numberOfSamples = 32;
+		}
 		if (numberOfSamples < 0)
 			numberOfSamples += 32; //Wrap condition
 
@@ -520,7 +534,7 @@ uint16_t MAX86150::check(void) {
 
 		//We may need to read as many as 288 bytes so we read in blocks no larger than I2C_BUFFER_LENGTH
 		uint8_t data[I2C_BUFFER_LENGTH];
-		uint8_t index = 0;
+		uint16_t index = 0;
 		while (bytesLeftToRead > 0) {
 			int toGet = bytesLeftToRead;
 			if (toGet > I2C_BUFFER_LENGTH) {
@@ -529,6 +543,8 @@ uint16_t MAX86150::check(void) {
 				//32 % 9 (Red+IR+GREEN) = 5 left over. We want to request 27.
 
 				toGet = I2C_BUFFER_LENGTH - (I2C_BUFFER_LENGTH % (activeDevices * 3)); //Trim toGet to be a multiple of the samples we need to read
+			}else{
+				toGet = toGet - (toGet % (activeDevices * 3)); //Trim toGet to be a multiple of the samples we need to read
 			}
 
 			bytesLeftToRead -= toGet;
@@ -545,7 +561,7 @@ uint16_t MAX86150::check(void) {
 				uint32_t tempLong;
 
 				//Burst read three bytes - RED
-				temp[3] = 0;
+//				temp[3] = 0;
 				temp[2] = data[index++];
 				temp[1] = data[index++];
 				temp[0] = data[index++];
@@ -559,7 +575,38 @@ uint16_t MAX86150::check(void) {
 
 				if (activeDevices > 1) {
 					//Burst read three more bytes - IR
-					temp[3] = 0;
+					temp[2] = data[index++];
+					temp[1] = data[index++];
+					temp[0] = data[index++];
+
+					//Convert array to long
+					memcpy(&tempLong, temp, sizeof(tempLong));
+					//Serial.println(tempLong);
+					tempLong &= 0x7FFFF; //Zero out all but 18 bits
+
+					sense.IR[sense.head] = tempLong;
+				}
+
+				if (activeDevices > 2) {
+					sense.head++; //Advance the head of the storage struct
+					sense.head %= STORAGE_SIZE; //Wrap condition
+
+					//Burst read three more bytes - IR
+					temp[2] = data[index++];
+					temp[1] = data[index++];
+					temp[0] = data[index++];
+
+					//Convert array to long
+					memcpy(&tempLong, temp, sizeof(tempLong));
+					//Serial.println(tempLong);
+					tempLong &= 0x7FFFF; //Zero out all but 18 bits
+
+					sense.red[sense.head] = tempLong;
+				}
+
+				if (activeDevices > 3) {
+
+					//Burst read three more bytes - IR
 					temp[2] = data[index++];
 					temp[1] = data[index++];
 					temp[0] = data[index++];
@@ -576,7 +623,6 @@ uint16_t MAX86150::check(void) {
 					//Burst read three more bytes - ECG
 					int32_t tempLongSigned;
 
-					temp[3] = 0;
 					temp[2] = data[index++];
 					temp[1] = data[index++];
 					temp[0] = data[index++];
@@ -656,7 +702,7 @@ bool MAX86150::write(uint8_t *data, uint8_t size) {
 
 bool MAX86150::read(uint8_t *data, uint8_t size) {
 	if (HAL_OK
-			== HAL_I2C_Master_Receive(i2c_han, i2c_addr, data, size, 10)) {
+			== HAL_I2C_Master_Receive(i2c_han, i2c_addr, data, size, 100)) {
 		return true;
 	} else {
 		return false;

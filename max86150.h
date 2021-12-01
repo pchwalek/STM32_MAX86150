@@ -41,7 +41,7 @@ extern "C" {
 #else
 
 //The catch-all default is 64
-#define I2C_BUFFER_LENGTH 64
+#define I2C_BUFFER_LENGTH 128
 
 #endif
 
@@ -109,6 +109,7 @@ public:
 
 	uint8_t getWritePointer(void);
 	uint8_t getReadPointer(void);
+	uint8_t getOVFCounter(void);
 	void clearFIFO(void); //Sets the read/write pointers to zero
 
 	//Proximity Mode Interrupt Threshold
@@ -147,7 +148,7 @@ private:
 
 	void bitMask(uint8_t reg, uint8_t mask, uint8_t thing);
 
-#define STORAGE_SIZE 40 //Each long is 4 bytes so limit this to fit on your micro
+#define STORAGE_SIZE 60 //Each long is 4 bytes so limit this to fit on your micro
 	typedef struct Record {
 		uint32_t red[STORAGE_SIZE];
 		uint32_t IR[STORAGE_SIZE];
