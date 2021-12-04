@@ -57,13 +57,13 @@ static const uint8_t MAX86150_INT_PROX_INT_MASK = (byte) ~0b00010000;
 static const uint8_t MAX86150_INT_PROX_INT_ENABLE = 0x10;
 static const uint8_t MAX86150_INT_PROX_INT_DISABLE = 0x00;
 
-static const uint8_t MAX86150_SAMPLEAVG_MASK = (byte) ~0b11100000;
+static const uint8_t MAX86150_SAMPLEAVG_MASK = (byte) ~0xF8;
 static const uint8_t MAX86150_SAMPLEAVG_1 = 0x00;
-static const uint8_t MAX86150_SAMPLEAVG_2 = 0x20;
-static const uint8_t MAX86150_SAMPLEAVG_4 = 0x40;
-static const uint8_t MAX86150_SAMPLEAVG_8 = 0x60;
-static const uint8_t MAX86150_SAMPLEAVG_16 = 0x80;
-static const uint8_t MAX86150_SAMPLEAVG_32 = 0xA0;
+static const uint8_t MAX86150_SAMPLEAVG_2 = 0x01;
+static const uint8_t MAX86150_SAMPLEAVG_4 = 0x02;
+static const uint8_t MAX86150_SAMPLEAVG_8 = 0x03;
+static const uint8_t MAX86150_SAMPLEAVG_16 = 0x04;
+static const uint8_t MAX86150_SAMPLEAVG_32 = 0x06;
 
 static const uint8_t MAX86150_ROLLOVER_MASK = 0xEF;
 static const uint8_t MAX86150_ROLLOVER_ENABLE = 0x10;
@@ -84,10 +84,11 @@ static const uint8_t MAX86150_MODE_REDIRONLY = 0x03;
 static const uint8_t MAX86150_MODE_MULTILED = 0x07;
 
 static const uint8_t MAX86150_ADCRANGE_MASK = 0x9F;
-static const uint8_t MAX86150_ADCRANGE_2048 = 0x00;
-static const uint8_t MAX86150_ADCRANGE_4096 = 0x20;
+static const uint8_t MAX86150_ADCRANGE_4096 = 0x00;
 static const uint8_t MAX86150_ADCRANGE_8192 = 0x40;
-static const uint8_t MAX86150_ADCRANGE_16384 = 0x60;
+static const uint8_t MAX86150_ADCRANGE_16384 = 0x80;
+static const uint8_t MAX86150_ADCRANGE_32768 = 0x60;
+
 
 static const uint8_t MAX86150_SAMPLERATE_MASK = 0xE3;
 static const uint8_t MAX86150_SAMPLERATE_50 = 0x00;
@@ -100,10 +101,10 @@ static const uint8_t MAX86150_SAMPLERATE_1600 = 0x24;
 static const uint8_t MAX86150_SAMPLERATE_3200 = 0x28;
 
 static const uint8_t MAX86150_PULSEWIDTH_MASK = 0xFC;
-static const uint8_t MAX86150_PULSEWIDTH_69 = 0x00;
-static const uint8_t MAX86150_PULSEWIDTH_118 = 0x01;
-static const uint8_t MAX86150_PULSEWIDTH_215 = 0x02;
-static const uint8_t MAX86150_PULSEWIDTH_411 = 0x03;
+static const uint8_t MAX86150_PULSEWIDTH_50 = 0x00;
+static const uint8_t MAX86150_PULSEWIDTH_100 = 0x01;
+static const uint8_t MAX86150_PULSEWIDTH_200 = 0x02;
+static const uint8_t MAX86150_PULSEWIDTH_400 = 0x03;
 
 static const uint8_t MAX86150_SLOT1_MASK = 0xF0;
 static const uint8_t MAX86150_SLOT2_MASK = 0x0F;
@@ -219,12 +220,12 @@ void MAX86150::wakeUp(void) {
 void MAX86150::setLEDMode(uint8_t mode) {
 	// Set which LEDs are used for sampling -- Red only, RED+IR only, or custom.
 	// See datasheet, page 19
-	//bitMask(MAX86150_PPGCONFIG1, MAX86150_MODE_MASK, mode);
+	bitMask(MAX86150_PPGCONFIG1, MAX86150_MODE_MASK, mode);
 }
 
 void MAX86150::setADCRange(uint8_t adcRange) {
 	// adcRange: one of MAX86150_ADCRANGE_2048, _4096, _8192, _16384
-	//bitMask(MAX86150_PARTICLECONFIG, MAX86150_ADCRANGE_MASK, adcRange);
+	bitMask(MAX86150_PPGCONFIG1, MAX86150_ADCRANGE_MASK, adcRange);
 }
 
 void MAX86150::setSampleRate(uint8_t sampleRate) {
@@ -232,9 +233,10 @@ void MAX86150::setSampleRate(uint8_t sampleRate) {
 	bitMask(MAX86150_PPGCONFIG1, MAX86150_SAMPLERATE_MASK, sampleRate);
 }
 
+
 void MAX86150::setPulseWidth(uint8_t pulseWidth) {
 	// pulseWidth: one of MAX86150_PULSEWIDTH_69, _188, _215, _411
-	//bitMask(MAX86150_PPGCONFIG1, MAX86150_PULSEWIDTH_MASK, pulseWidth);
+	bitMask(MAX86150_PPGCONFIG1, MAX86150_PULSEWIDTH_MASK, pulseWidth);
 }
 
 // NOTE: Amplitude values: 0x00 = 0mA, 0x7F = 25.4mA, 0xFF = 50mA (typical)
@@ -294,6 +296,11 @@ void MAX86150::disableSlots(void) {
 
 void MAX86150::setFIFOAverage(uint8_t numberOfSamples) {
 	bitMask(MAX86150_FIFOCONFIG, MAX86150_SAMPLEAVG_MASK, numberOfSamples);
+}
+
+void MAX86150::setSampleAverage(uint8_t sampleAvg){
+	bitMask(MAX86150_PPGCONFIG2, MAX86150_SAMPLEAVG_MASK, sampleAvg);
+
 }
 
 //Resets all points to start in a known state
@@ -366,36 +373,58 @@ void MAX86150::setup(byte powerLevel, byte sampleAverage, byte ledMode,
 	//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 	//The chip will average multiple samples of same type together if you wish
 	if (sampleAverage == 1)
-		setFIFOAverage(MAX86150_SAMPLEAVG_1); //No averaging per FIFO record
+		setSampleAverage(MAX86150_SAMPLEAVG_1); //No averaging per FIFO record
 	else if (sampleAverage == 2)
-		setFIFOAverage(MAX86150_SAMPLEAVG_2);
+		setSampleAverage(MAX86150_SAMPLEAVG_2);
 	else if (sampleAverage == 4)
-		setFIFOAverage(MAX86150_SAMPLEAVG_4);
+		setSampleAverage(MAX86150_SAMPLEAVG_4);
 	else if (sampleAverage == 8)
-		setFIFOAverage(MAX86150_SAMPLEAVG_8);
+		setSampleAverage(MAX86150_SAMPLEAVG_8);
 	else if (sampleAverage == 16)
-		setFIFOAverage(MAX86150_SAMPLEAVG_16);
+		setSampleAverage(MAX86150_SAMPLEAVG_16);
 	else if (sampleAverage == 32)
-		setFIFOAverage(MAX86150_SAMPLEAVG_32);
+		setSampleAverage(MAX86150_SAMPLEAVG_32);
 	else
-		setFIFOAverage(MAX86150_SAMPLEAVG_4);
+		setSampleAverage(MAX86150_SAMPLEAVG_4);
+
+	if(adcRange==4096)
+		setADCRange(MAX86150_ADCRANGE_4096);
+	else if(adcRange==8192)
+		setADCRange(MAX86150_ADCRANGE_8192);
+	else if(adcRange==16384)
+		setADCRange(MAX86150_ADCRANGE_16384);
+	else if(adcRange==32768)
+		setADCRange(MAX86150_ADCRANGE_32768);
+	else
+		setADCRange(MAX86150_SAMPLERATE_50);
+
+	if(pulseWidth==50)
+		setPulseWidth(MAX86150_PULSEWIDTH_50);
+	else if(pulseWidth==100)
+		setPulseWidth(MAX86150_PULSEWIDTH_100);
+	else if(pulseWidth==200)
+		setPulseWidth(MAX86150_PULSEWIDTH_200);
+	else if(pulseWidth==400)
+		setPulseWidth(MAX86150_PULSEWIDTH_400);
+	else
+		setPulseWidth(MAX86150_PULSEWIDTH_50);
 
 	if(sampleRate==50)
 		setSampleRate(MAX86150_SAMPLERATE_50);
 	else if(sampleRate==100)
 		setSampleRate(MAX86150_SAMPLERATE_100);
 	else if(sampleRate==200)
-			setSampleRate(MAX86150_SAMPLERATE_200);
+		setSampleRate(MAX86150_SAMPLERATE_200);
 	else if(sampleRate==400)
-			setSampleRate(MAX86150_SAMPLERATE_400);
+		setSampleRate(MAX86150_SAMPLERATE_400);
 	else if(sampleRate==800)
-			setSampleRate(MAX86150_SAMPLERATE_800);
+		setSampleRate(MAX86150_SAMPLERATE_800);
 	else if(sampleRate==1000)
-			setSampleRate(MAX86150_SAMPLERATE_1000);
+		setSampleRate(MAX86150_SAMPLERATE_1000);
 	else if(sampleRate==1600)
-			setSampleRate(MAX86150_SAMPLERATE_1600);
+		setSampleRate(MAX86150_SAMPLERATE_1600);
 	else if(sampleRate==3200)
-			setSampleRate(MAX86150_SAMPLERATE_3200);
+		setSampleRate(MAX86150_SAMPLERATE_3200);
 	else
 		setSampleRate(MAX86150_SAMPLERATE_50);
 
@@ -414,16 +443,16 @@ void MAX86150::setup(byte powerLevel, byte sampleAverage, byte ledMode,
 	//writeRegister8(i2c_addr,MAX86150_FIFOCONTROL1, (char)(FIFOCode & 0x00FF) );
 	//writeRegister8(i2c_addr,MAX86150_FIFOCONTROL2, (char)(FIFOCode >>8) );
 
-	writeRegister8(i2c_addr, MAX86150_PPGCONFIG1, 0b11010001);
+//	writeRegister8(i2c_addr, MAX86150_PPGCONFIG1, 0b11010001);
 	//writeRegister8(i2c_addr,MAX86150_PPGCONFIG1,0b11100111);
 
-	writeRegister8(i2c_addr, MAX86150_PPGCONFIG2, 0x06);
+//	writeRegister8(i2c_addr, MAX86150_PPGCONFIG2, 0x06);
 	writeRegister8(i2c_addr, MAX86150_LED_RANGE, 0x00); // PPG_ADC_RGE: 32768nA
 
 	writeRegister8(i2c_addr, MAX86150_SYSCONTROL, 0x04); //start FIFO
 
-	writeRegister8(i2c_addr, MAX86150_ECG_CONFIG1, 0b00000011);
-	writeRegister8(i2c_addr, MAX86150_ECG_CONFIG3, 0b00001101);
+//	writeRegister8(i2c_addr, MAX86150_ECG_CONFIG1, 0b00000011);
+//	writeRegister8(i2c_addr, MAX86150_ECG_CONFIG3, 0b00001101);
 
 	setPulseAmplitudeRed(0xFF);
 	setPulseAmplitudeIR(0xFF);

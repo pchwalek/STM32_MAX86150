@@ -98,6 +98,7 @@ public:
 	void enableFIFORollover();
 	void disableFIFORollover();
 	void setFIFOAlmostFull(uint8_t samples);
+	void setSampleAverage(uint8_t sampleAvg);
 
 	//FIFO Reading
 	uint16_t check(void); //Checks for new data and fills FIFO
@@ -126,7 +127,7 @@ public:
 
 	// Setup the IC with user selectable settings
 	void setup(byte powerLevel = 0x1F, byte sampleAverage = 4, byte ledMode = 3,
-			int sampleRate = 400, int pulseWidth = 411, int adcRange = 4096);
+			int sampleRate = 400, int pulseWidth = 400, int adcRange = 4096);
 
 	// Low-level I2C communication
 	uint8_t readRegister8(uint8_t address, uint8_t reg);
