@@ -83,14 +83,14 @@ static const uint8_t MAX86150_MODE_REDONLY = 0x02;
 static const uint8_t MAX86150_MODE_REDIRONLY = 0x03;
 static const uint8_t MAX86150_MODE_MULTILED = 0x07;
 
-static const uint8_t MAX86150_ADCRANGE_MASK = 0x9F;
+static const uint8_t MAX86150_ADCRANGE_MASK = 0x3F;
 static const uint8_t MAX86150_ADCRANGE_4096 = 0x00;
 static const uint8_t MAX86150_ADCRANGE_8192 = 0x40;
 static const uint8_t MAX86150_ADCRANGE_16384 = 0x80;
-static const uint8_t MAX86150_ADCRANGE_32768 = 0x60;
+static const uint8_t MAX86150_ADCRANGE_32768 = 0xC0;
 
 
-static const uint8_t MAX86150_SAMPLERATE_MASK = 0xE3;
+static const uint8_t MAX86150_SAMPLERATE_MASK = 0xC3;
 static const uint8_t MAX86150_SAMPLERATE_50 = 0x00;
 static const uint8_t MAX86150_SAMPLERATE_100 = 0x10;
 static const uint8_t MAX86150_SAMPLERATE_200 = 0x14;
@@ -306,7 +306,6 @@ void MAX86150::setSampleAverage(uint8_t sampleAvg){
 //Resets all points to start in a known state
 void MAX86150::clearFIFO(void) {
 	writeRegister8(i2c_addr, MAX86150_FIFOWRITEPTR, 0);
-	writeRegister8(i2c_addr, MAX86150_FIFOOVERFLOW, 0);
 	writeRegister8(i2c_addr, MAX86150_FIFOREADPTR, 0);
 }
 
@@ -428,52 +427,34 @@ void MAX86150::setup(byte powerLevel, byte sampleAverage, byte ledMode,
 	else
 		setSampleRate(MAX86150_SAMPLERATE_50);
 
-	uint16_t FIFOCode = 0x00;
-
-	FIFOCode = FIFOCode << 4 | 0x0009; // : FIFOCode;  //insert ECG front of ETI in FIFO
-	FIFOCode = FIFOCode << 8 | 0x0021; //) : FIFOCode; //insert Red(2) and IR (1) in front of ECG in FIFO
-
-	//FIFO Control 1 = FD2|FD1, FIFO Control 2 = FD4|FD3
 
 	writeRegister8(i2c_addr, MAX86150_FIFOCONTROL1, (0b00100001)); // ppg led1 and led2
-	//writeRegister8(i2c_addr,MAX86150_FIFOCONTROL1,(0b00001001));
-//	writeRegister8(i2c_addr, MAX86150_FIFOCONTROL2, (0b00001001)); // ecg
 	writeRegister8(i2c_addr, MAX86150_FIFOCONTROL2, (0b00100001)); // ppg led1 and led2
-	//writeRegister8(i2c_addr,MAX86150_FIFOCONTROL2,(0b00000000));
-	//writeRegister8(i2c_addr,MAX86150_FIFOCONTROL1, (char)(FIFOCode & 0x00FF) );
-	//writeRegister8(i2c_addr,MAX86150_FIFOCONTROL2, (char)(FIFOCode >>8) );
-
-//	writeRegister8(i2c_addr, MAX86150_PPGCONFIG1, 0b11010001);
-	//writeRegister8(i2c_addr,MAX86150_PPGCONFIG1,0b11100111);
-
-//	writeRegister8(i2c_addr, MAX86150_PPGCONFIG2, 0x06);
 	writeRegister8(i2c_addr, MAX86150_LED_RANGE, 0x00); // PPG_ADC_RGE: 32768nA
 
-	writeRegister8(i2c_addr, MAX86150_SYSCONTROL, 0x04); //start FIFO
-
-//	writeRegister8(i2c_addr, MAX86150_ECG_CONFIG1, 0b00000011);
-//	writeRegister8(i2c_addr, MAX86150_ECG_CONFIG3, 0b00001101);
-
-	setPulseAmplitudeRed(0xFF);
-	setPulseAmplitudeIR(0xFF);
-
-	//Multi-LED Mode Configuration, Enable the reading of the three LEDs
-	//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-	//enableSlot(1, SLOT_RED_LED);
-	//if (ledMode > 1)
-	//enableSlot(2, SLOT_IR_LED);
-	//if (ledMode > 2)
-	//enableSlot(3, SLOT_ECG);
-	//enableSlot(1, SLOT_RED_PILOT);
-	//enableSlot(2, SLOT_IR_PILOT);
-	//enableSlot(3, SLOT_GREEN_PILOT);
-	//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
+	// setting this higher can cause system instability if hardware architecture not optimized
+	//    i.e., if the LEDs draw power from same rail as MCU, the high LED currents can cause issues for processor
+	setPulseAmplitudeRed(0xFF >> 1);
+	setPulseAmplitudeIR(0xFF >> 1);
+//
+//	//Multi-LED Mode Configuration, Enable the reading of the three LEDs
+//	//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+//	//enableSlot(1, SLOT_RED_LED);
+//	//if (ledMode > 1)
+//	//enableSlot(2, SLOT_IR_LED);
+//	//if (ledMode > 2)
+//	//enableSlot(3, SLOT_ECG);
+//	//enableSlot(1, SLOT_RED_PILOT);
+//	//enableSlot(2, SLOT_IR_PILOT);
+//	//enableSlot(3, SLOT_GREEN_PILOT);
+//	//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+//
 	// reset rolling buffer indexes
 	sense.head = 0;
 	sense.tail = 0;
 
-	clearFIFO(); //Reset the FIFO before we begin checking the sensor
+	writeRegister8(i2c_addr, MAX86150_SYSCONTROL, 0x04); //start FIFO (also resets FIFO ptrs)
+
 }
 
 //Tell caller how many samples are available
