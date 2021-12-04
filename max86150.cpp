@@ -91,13 +91,13 @@ static const uint8_t MAX86150_ADCRANGE_16384 = 0x60;
 
 static const uint8_t MAX86150_SAMPLERATE_MASK = 0xE3;
 static const uint8_t MAX86150_SAMPLERATE_50 = 0x00;
-static const uint8_t MAX86150_SAMPLERATE_100 = 0x04;
-static const uint8_t MAX86150_SAMPLERATE_200 = 0x08;
-static const uint8_t MAX86150_SAMPLERATE_400 = 0x0C;
-static const uint8_t MAX86150_SAMPLERATE_800 = 0x10;
-static const uint8_t MAX86150_SAMPLERATE_1000 = 0x14;
-static const uint8_t MAX86150_SAMPLERATE_1600 = 0x18;
-static const uint8_t MAX86150_SAMPLERATE_3200 = 0x1C;
+static const uint8_t MAX86150_SAMPLERATE_100 = 0x10;
+static const uint8_t MAX86150_SAMPLERATE_200 = 0x14;
+static const uint8_t MAX86150_SAMPLERATE_400 = 0x18;
+static const uint8_t MAX86150_SAMPLERATE_800 = 0x1C;
+static const uint8_t MAX86150_SAMPLERATE_1000 = 0x20;
+static const uint8_t MAX86150_SAMPLERATE_1600 = 0x24;
+static const uint8_t MAX86150_SAMPLERATE_3200 = 0x28;
 
 static const uint8_t MAX86150_PULSEWIDTH_MASK = 0xFC;
 static const uint8_t MAX86150_PULSEWIDTH_69 = 0x00;
@@ -229,7 +229,7 @@ void MAX86150::setADCRange(uint8_t adcRange) {
 
 void MAX86150::setSampleRate(uint8_t sampleRate) {
 	// sampleRate: one of MAX86150_SAMPLERATE_50, _100, _200, _400, _800, _1000, _1600, _3200
-	//bitMask(MAX86150_PARTICLECONFIG, MAX86150_SAMPLERATE_MASK, sampleRate);
+	bitMask(MAX86150_PPGCONFIG1, MAX86150_SAMPLERATE_MASK, sampleRate);
 }
 
 void MAX86150::setPulseWidth(uint8_t pulseWidth) {
@@ -379,6 +379,25 @@ void MAX86150::setup(byte powerLevel, byte sampleAverage, byte ledMode,
 		setFIFOAverage(MAX86150_SAMPLEAVG_32);
 	else
 		setFIFOAverage(MAX86150_SAMPLEAVG_4);
+
+	if(sampleRate==50)
+		setSampleRate(MAX86150_SAMPLERATE_50);
+	else if(sampleRate==100)
+		setSampleRate(MAX86150_SAMPLERATE_100);
+	else if(sampleRate==200)
+			setSampleRate(MAX86150_SAMPLERATE_200);
+	else if(sampleRate==400)
+			setSampleRate(MAX86150_SAMPLERATE_400);
+	else if(sampleRate==800)
+			setSampleRate(MAX86150_SAMPLERATE_800);
+	else if(sampleRate==1000)
+			setSampleRate(MAX86150_SAMPLERATE_1000);
+	else if(sampleRate==1600)
+			setSampleRate(MAX86150_SAMPLERATE_1600);
+	else if(sampleRate==3200)
+			setSampleRate(MAX86150_SAMPLERATE_3200);
+	else
+		setSampleRate(MAX86150_SAMPLERATE_50);
 
 	uint16_t FIFOCode = 0x00;
 
